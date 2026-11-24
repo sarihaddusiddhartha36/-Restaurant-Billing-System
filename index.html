@@ -1,0 +1,407 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Restaurant Billing System</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #f2f2f2;
+    margin: 0;
+}
+
+header {
+    background: #252d3a;
+    color: white;
+    text-align: center;
+    padding: 20px;
+}
+
+.container {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    flex-wrap: wrap;
+}
+
+.menu, .billing {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    flex: 1;
+    min-width: 280px;
+}
+
+.food {
+    border: 1px solid #ddd;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+button {
+    background: #e67e22;
+    color: white;
+    border: none;
+    padding: 9px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #c0392b;
+}
+
+input {
+    width: 95%;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.cart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #ddd;
+    gap: 8px;
+}
+
+.total {
+    font-size: 20px;
+    font-weight: bold;
+    color: green;
+}
+
+.generate {
+    background: green;
+    width: 100%;
+    padding: 12px;
+    margin-top: 15px;
+}
+
+#receipt {
+    background: white;
+    max-width: 500px;
+    margin: 20px auto;
+    padding: 20px;
+    display: none;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    border-bottom: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+}
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    #receipt, #receipt * {
+        visibility: visible;
+    }
+
+    #receipt {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 90%;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>Restaurant Billing System</h1>
+<p>Customer Order Management</p>
+</header>
+
+<div class="container">
+
+<!-- FOOD MENU -->
+<div class="menu">
+<h2>Food Menu</h2>
+<div id="foodMenu"></div>
+</div>
+
+<!-- BILLING SECTION -->
+<div class="billing">
+<h2>Customer Billing</h2>
+
+<input type="text" id="customer"
+placeholder="Enter Customer Name">
+
+<h3>Shopping Cart</h3>
+
+<div id="cart"></div>
+
+<hr>
+
+<p>Subtotal: ₹<span id="subtotal">0</span></p>
+
+<p>GST (5%): ₹<span id="gst">0</span></p>
+
+<p class="total">
+Grand Total: ₹<span id="total">0</span>
+</p>
+
+<button class="generate" onclick="generateBill()">
+Generate Bill
+</button>
+
+</div>
+</div>
+
+<!-- RECEIPT -->
+<div id="receipt">
+<h2 style="text-align:center">
+RESTAURANT RECEIPT
+</h2>
+
+<p>Bill No: <span id="billNo"></span></p>
+<p>Customer: <span id="billCustomer"></span></p>
+<p>Date: <span id="billDate"></span></p>
+
+<hr>
+
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Qty</th>
+<th>Price</th>
+</tr>
+</thead>
+<tbody id="receiptItems"></tbody>
+</table>
+
+<hr>
+
+<p>Subtotal: ₹<span id="rSubtotal"></span></p>
+<p>GST: ₹<span id="rGST"></span></p>
+
+<h3>
+Grand Total: ₹<span id="rTotal"></span>
+</h3>
+
+<h3 style="text-align:center">
+Thank You! Visit Again.
+</h3>
+
+<button class="no-print" onclick="window.print()">
+Print Bill
+</button>
+</div>
+
+<script>
+
+// FOOD DATABASE
+const foods = [
+    {id:1, name:"Chicken Biryani", price:180},
+    {id:2, name:"Veg Biryani", price:120},
+    {id:3, name:"Paneer Butter Masala", price:160},
+    {id:4, name:"Masala Dosa", price:60},
+    {id:5, name:"Idly", price:40},
+    {id:6, name:"Cold Coffee", price:80},
+    {id:7, name:"Fresh Lime Soda", price:50}
+];
+
+// CART DATABASE
+let cart = [];
+
+// LOAD FOOD MENU
+function displayFoods() {
+
+    const menu = document.getElementById("foodMenu");
+
+    menu.innerHTML = foods.map(food => `
+        <div class="food">
+            <div>
+                <b>${food.name}</b>
+                <br>
+                Price: ₹${food.price}
+            </div>
+
+            <button onclick="addToCart(${food.id})">
+                Add
+            </button>
+        </div>
+    `).join("");
+}
+
+// ADD FOOD TO CART
+function addToCart(id) {
+
+    const food = foods.find(f => f.id === id);
+
+    const existing = cart.find(item => item.id === id);
+
+    if(existing) {
+        existing.quantity++;
+    } else {
+        cart.push({
+            ...food,
+            quantity: 1
+        });
+    }
+
+    displayCart();
+}
+
+// INCREASE QUANTITY
+function increase(id) {
+
+    const item = cart.find(i => i.id === id);
+
+    item.quantity++;
+
+    displayCart();
+}
+
+// DECREASE QUANTITY
+function decrease(id) {
+
+    const item = cart.find(i => i.id === id);
+
+    item.quantity--;
+
+    cart = cart.filter(i => i.quantity > 0);
+
+    displayCart();
+}
+
+// REMOVE ITEM
+function removeItem(id) {
+
+    cart = cart.filter(i => i.id !== id);
+
+    displayCart();
+}
+
+// DISPLAY CART AND CALCULATE BILL
+function displayCart() {
+
+    const cartDiv = document.getElementById("cart");
+
+    cartDiv.innerHTML = cart.map(item => `
+        <div class="cart-item">
+
+            <div>
+                <b>${item.name}</b>
+                <br>
+                ₹${item.price} × ${item.quantity}
+            </div>
+
+            <div>
+                <button onclick="increase(${item.id})">+</button>
+
+                ${item.quantity}
+
+                <button onclick="decrease(${item.id})">-</button>
+
+                <button onclick="removeItem(${item.id})">X</button>
+            </div>
+
+        </div>
+    `).join("");
+
+    const subtotal = cart.reduce(
+        (sum, item) => sum + item.price * item.quantity, 0
+    );
+
+    const gst = subtotal * 0.05;
+
+    const total = subtotal + gst;
+
+    document.getElementById("subtotal").innerText =
+        subtotal.toFixed(2);
+
+    document.getElementById("gst").innerText =
+        gst.toFixed(2);
+
+    document.getElementById("total").innerText =
+        total.toFixed(2);
+}
+
+// GENERATE CUSTOMER BILL
+function generateBill() {
+
+    const customer = document.getElementById("customer").value;
+
+    if(customer.trim() === "") {
+        alert("Please enter customer name!");
+        return;
+    }
+
+    if(cart.length === 0) {
+        alert("Please add food items!");
+        return;
+    }
+
+    const subtotal = cart.reduce(
+        (sum, item) => sum + item.price * item.quantity, 0
+    );
+
+    const gst = subtotal * 0.05;
+
+    const total = subtotal + gst;
+
+    document.getElementById("billNo").innerText =
+        Date.now();
+
+    document.getElementById("billCustomer").innerText =
+        customer;
+
+    document.getElementById("billDate").innerText =
+        new Date().toLocaleString();
+
+    document.getElementById("receiptItems").innerHTML =
+        cart.map(item => `
+            <tr>
+                <td>${item.name}</td>
+                <td>${item.quantity}</td>
+                <td>₹${item.price * item.quantity}</td>
+            </tr>
+        `).join("");
+
+    document.getElementById("rSubtotal").innerText =
+        subtotal.toFixed(2);
+
+    document.getElementById("rGST").innerText =
+        gst.toFixed(2);
+
+    document.getElementById("rTotal").innerText =
+        total.toFixed(2);
+
+    document.getElementById("receipt").style.display =
+        "block";
+
+    alert("Bill Generated Successfully!");
+}
+
+// INITIALIZE APPLICATION
+displayFoods();
+
+</script>
+
+</body>
+</html>
